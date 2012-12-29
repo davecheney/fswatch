@@ -6,7 +6,6 @@ package fswatch
 
 import (
 	"errors"
-	"sync"
 )
 
 var (
@@ -15,11 +14,7 @@ var (
 
 type Watcher struct {
 	// C receives the stream of Events from watched paths.
-	C   <-chan *Event
-	err struct {
-		sync.Mutex
-		val error
-	}
+	C <-chan *Event
 	*watcher
 }
 
@@ -34,9 +29,6 @@ func NewWatcher() (*Watcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	if w == nil {
-		panic(w)
-	}
 	go w.run()
 	return &Watcher{
 		C:       w.C,
@@ -48,7 +40,7 @@ func NewWatcher() (*Watcher, error) {
 // If path is a directory, the watcher will observe all changes to
 // the directory and its direct decentants.
 func (w *Watcher) Add(path string) error {
-	return w.setError(w.add(path))
+	return w.add(path)
 }
 
 // Watch creates a new watcher for the supplied path.
@@ -66,14 +58,4 @@ func Watch(path string) (*Watcher, error) {
 
 func (w *Watcher) Close() error {
 	return w.close()
-}
-
-// setError sets the internal error value, if not already set.
-func (w *Watcher) setError(err error) error {
-	w.err.Lock()
-	if w.err.val != nil {
-		w.err.val = err
-	}
-	w.err.Unlock()
-	return err
 }
