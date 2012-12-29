@@ -7,6 +7,7 @@
 package fswatch
 
 import (
+	"os"
 	"syscall"
 	"testing"
 )
@@ -38,18 +39,19 @@ func TestKqueueAddFile(t *testing.T) {
 	assert(t, kq.close())
 }
 
-func TestKqueueWaitSocketClose(t *testing.T) {
+func TestKqueueWaitPipeClose(t *testing.T) {
 	kq, err := newkqueue()
 	assert(t, err)
-	s, err := syscall.Socket(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+	pr, pw, err := os.Pipe()
 	assert(t, err)
-	assert(t, kq.add(uintptr(s), syscall.EVFILT_READ, syscall.EV_ONESHOT, 0))
+	defer pw.Close()
+	assert(t, kq.add(uintptr(pr.Fd()), syscall.EVFILT_READ, syscall.EV_ONESHOT, 0))
 	result := make(chan error)
 	go func() {
 		_, err := kq.wait(make([]syscall.Kevent_t, 1))
 		result <- err
 	}()
-	syscall.Close(s)
+	assert(t, pw.Close())
 	assert(t, <-result)
 	assert(t, kq.close())
 }
