@@ -66,6 +66,31 @@ func newfile(t *testing.T, dir string) *os.File {
 	return f
 }
 
+type mockevent struct {
+	create, remove bool
+}
+
+func (e *mockevent) IsCreate() bool { return e.create }
+func (e *mockevent) IsRemove() bool { return e.remove }
+
+func checkevent(t *testing.T, expected, actual interface {
+	IsCreate() bool
+	IsRemove() bool
+},) {
+	if expected.IsCreate() != actual.IsCreate() {
+		t.Errorf("Event.IsCreate: expected %v, actual %v", expected.IsCreate(), actual.IsCreate())
+	}
+	if expected.IsRemove() != actual.IsRemove() {
+		t.Errorf("Event.IsRemove: expected %v, actual %v", expected.IsRemove(), actual.IsRemove())
+	}
+}
+
+func checkstring(t *testing.T, expected, actual string) {
+	if expected != actual {
+		t.Errorf("expected: %q, actual %q", expected, actual)
+	}
+}
+
 func TestNewWatcher(t *testing.T) {
 	w, err := NewWatcher()
 	assert(t, err)
@@ -111,9 +136,8 @@ func TestWatchCreateFile(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timeout")
 	case e := <-w.C:
-		if f.Name() != e.Target || !e.IsCreate() {
-			t.Fatalf("expected create, got %v", e)
-		}
+		checkstring(t, f.Name(), e.Target)
+		checkevent(t, &mockevent{create: true}, e)
 	}
 }
 
@@ -132,9 +156,8 @@ func TestWatchDeleteFile(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timeout")
 	case e := <-w.C:
-		if f.Name() != e.Target || !e.IsRemove() {
-			t.Fatalf("expected remove, got %v", e)
-		}
+		checkstring(t, f.Name(), e.Target)
+		checkevent(t, &mockevent{remove: true}, e)
 	}
 }
 
@@ -149,9 +172,8 @@ func TestWatchCreateDir(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timeout")
 	case e := <-w.C:
-		if p != e.Target || !e.IsCreate() {
-			t.Fatalf("expected create, got %v", e)
-		}
+		checkstring(t, p, e.Target)
+		checkevent(t, &mockevent{create: true}, e)
 	}
 }
 
@@ -169,9 +191,8 @@ func TestWatchDeleteDir(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timeout")
 	case e := <-w.C:
-		if p != e.Target || !e.IsRemove() {
-			t.Fatalf("expected remove, got %v", e)
-		}
+		checkstring(t, p, e.Target)
+		checkevent(t, &mockevent{remove: true}, e)
 	}
 }
 
@@ -188,9 +209,8 @@ func TestWatchSelfFile(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timeout")
 	case e := <-w.C:
-		if f.Name() != e.Target || !e.IsCreate() {
-			t.Fatalf("expected create, got %v", e)
-		}
+		checkstring(t, f.Name(), e.Target)
+		checkevent(t, &mockevent{create: true}, e)
 	}
 }
 
@@ -248,9 +268,8 @@ func TestWatchTwoPaths(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timeout")
 	case e := <-w.C:
-		if f.Name() != e.Target || !e.IsCreate() {
-			t.Errorf("d1: expected %q, got %q", f.Name(), e.Target)
-		}
+		checkstring(t, f.Name(), e.Target)
+		checkevent(t, &mockevent{create: true}, e)
 	}
 	f = newfile(t, d2)
 	defer f.Close()
@@ -258,8 +277,7 @@ func TestWatchTwoPaths(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("timeout")
 	case e := <-w.C:
-		if f.Name() != e.Target || !e.IsCreate() {
-			t.Errorf("d2: expected %q, got %q", f.Name(), e.Target)
-		}
+		checkstring(t, f.Name(), e.Target)
+		checkevent(t, &mockevent{create: true}, e)
 	}
 }
